@@ -1,0 +1,59 @@
+# AI Code Review Agent — Azure DevOps Pipeline
+# Triggers only on Pull Requests to main or develop
+# Does NOT trigger on every commit (cost optimization)
+
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    include:
+      - "**/*.java"
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.py"
+      - "**/*.ts"
+    exclude:
+      - "**/*.json"
+      - "**/*.yml"
+      - "**/*.md"
+      - "**/*.css"
+      - "**/test*"
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  PYTHON_VERSION: "3.11"
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "$(PYTHON_VERSION)"
+    displayName: "Set up Python $(PYTHON_VERSION)"
+
+  - script: |
+      pip install -r requirements.txt
+    displayName: "Install dependencies"
+
+  - script: |
+      python agent/review_agent.py
+    displayName: "Run AI Code Review Agent"
+    env:
+      ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
+      AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
+      AZURE_ORG_URL: $(AZURE_ORG_URL)
+      DB_HOST: $(DB_HOST)
+      DB_NAME: $(DB_NAME)
+      DB_USER: $(DB_USER)
+      DB_PASSWORD: $(DB_PASSWORD)
+      BUILD_REPOSITORY_ID: $(Build.Repository.ID)
+      SYSTEM_PULLREQUEST_PULLREQUESTID: $(System.PullRequest.PullRequestId)
+
+  - script: |
+      python agent/report_generator.py
+    displayName: "Generate Health Report"
+    condition: always()
